@@ -136,11 +136,11 @@ class DevToolsPanel {
                             const tagName = element.tagName.toLowerCase();
                             const xpath = this.getXPath(element);
                             
-                            return \`\${tagName}.\${classes}[\${xpath}]\`;
+                            return tagName + '.' + classes + '[' + xpath + ']';
                         }
 
                         getXPath(element) {
-                            if (element.id) return \`id("\${element.id}")\`;
+                            if (element.id) return 'id("' + element.id + '")';
                             
                             const parts = [];
                             while (element && element.nodeType === Node.ELEMENT_NODE) {
@@ -161,7 +161,7 @@ class DevToolsPanel {
                                 }
                                 
                                 const tagName = element.tagName.toLowerCase();
-                                const pathIndex = (index > 0 || hasFollowingSiblings) ? \`[\${index + 1}]\` : '';
+                                const pathIndex = (index > 0 || hasFollowingSiblings) ? '[' + (index + 1) + ']' : '';
                                 parts.unshift(tagName + pathIndex);
                                 
                                 element = element.parentNode;
