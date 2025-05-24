@@ -7,26 +7,39 @@
             margin: 0;
             padding: 20px;
             background: #f5f5f5;
+            width: 100%;
+            min-height: 100vh;
         }
         
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        
         h1 {
-            margin: 0 0 20px 0;
+            margin: 0;
             color: #333;
             font-size: 20px;
         }
         
         .status {
-            padding: 12px;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
             border-radius: 6px;
-            margin-bottom: 20px;
+            font-size: 12px;
             font-weight: 500;
         }
         
@@ -42,23 +55,79 @@
             border: 1px solid #ffb3b3;
         }
         
-        .controls {
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .status.active .status-dot {
+            background: #4caf50;
+        }
+        
+        .status.inactive .status-dot {
+            background: #f44336;
+        }
+        
+        .config-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
             margin-bottom: 20px;
+        }
+        
+        .config-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            align-items: end;
+        }
+        
+        .config-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-group {
+            flex: 1;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #555;
+            font-size: 12px;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            box-sizing: border-box;
         }
         
         .btn {
             background: #4285f4;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 6px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
-            margin-right: 10px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
         }
         
         .btn:hover {
             background: #3367d6;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
         
         .btn.danger {
@@ -69,23 +138,182 @@
             background: #c82333;
         }
         
+        .btn.success {
+            background: #28a745;
+        }
+        
+        .btn.success:hover {
+            background: #218838;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .changes-section {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        .changes-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .changes-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .changes-count {
+            background: #6c757d;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .changes-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .change-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .change-item:last-child {
+            border-bottom: none;
+        }
+        
+        .change-item.selected {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        
+        .change-details {
+            flex: 1;
+        }
+        
+        .change-selector {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .change-property {
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+        
+        .property-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .property-value {
+            color: #666;
+        }
+        
+        .property-value.old {
+            text-decoration: line-through;
+            color: #dc3545;
+        }
+        
+        .property-value.new {
+            color: #28a745;
+            font-weight: 500;
+        }
+        
+        .change-actions {
+            display: flex;
+            gap: 5px;
+            margin-left: 10px;
+        }
+        
+        .btn-mini {
+            padding: 4px 8px;
+            font-size: 10px;
+            border-radius: 3px;
+        }
+        
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .empty-state .icon {
+            font-size: 48px;
+            color: #ddd;
+            margin-bottom: 10px;
+        }
+        
+        .bulk-actions {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .bulk-info {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .bulk-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .current-domain {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #1976d2;
+            font-weight: 500;
+        }
+        
+        .checkbox {
+            margin-right: 8px;
+        }
+        
         .log {
-            max-height: 300px;
+            max-height: 150px;
             overflow-y: auto;
             border: 1px solid #ddd;
-            padding: 10px;
             background: #f8f9fa;
             font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.4;
+            padding: 10px;
+            border-radius: 4px;
         }
         
         .log-entry {
-            margin-bottom: 5px;
-            padding: 2px 0;
+            margin-bottom: 3px;
+            padding: 1px 0;
         }
         
-        .log-entry.change {
+        .log-entry.success {
             color: #28a745;
         }
         
@@ -98,30 +326,80 @@
         }
         
         .timestamp {
-            color: #6c757d;
-            font-size: 11px;
+            color: #999;
+            font-size: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>CSS DevTools Sync Panel.html </h1>
-        
-        <div id="sync-status" class="status inactive">
-            CSS Sync is inactive. Click "Start Sync" to begin tracking changes.
+        <div class="header">
+            <h1>CSS DevTools Sync</h1>
+            <div id="sync-status" class="status inactive">
+                <div class="status-dot"></div>
+                <span>Inactive</span>
+            </div>
         </div>
-        
-        <div class="controls">
-            <button id="start-btn" class="btn">Start Sync</button>
-            <button id="stop-btn" class="btn danger" style="display: none;">Stop Sync</button>
-            <button id="clear-log-btn" class="btn">Clear Log</button>
+
+        <div class="config-section">
+            <div class="config-row">
+                <div class="form-group">
+                    <label for="css-path">CSS Project Path:</label>
+                    <input type="text" id="css-path" placeholder="/path/to/your/css/folder">
+                </div>
+                <div class="form-group" style="flex: 0 0 150px;">
+                    <label for="detection-mode">Detection Mode:</label>
+                    <select id="detection-mode">
+                        <option value="manual">Manual Only</option>
+                        <option value="selective">Selective</option>
+                        <option value="all">All Changes</option>
+                    </select>
+                </div>
+                <button id="save-config-btn" class="btn">Save Config</button>
+            </div>
+            <div class="config-row">
+                <div class="current-domain">
+                    Current Domain: <span id="current-domain">Loading...</span>
+                </div>
+                <div class="controls">
+                    <button id="start-btn" class="btn">Start Tracking</button>
+                    <button id="stop-btn" class="btn danger" style="display: none;">Stop Tracking</button>
+                    <button id="clear-btn" class="btn">Clear All</button>
+                </div>
+            </div>
         </div>
-        
-        <div>
-            <h3>Activity Log</h3>
+
+        <div class="changes-section">
+            <div class="changes-header">
+                <h3>Detected CSS Changes</h3>
+                <span id="changes-count" class="changes-count">0</span>
+            </div>
+            
+            <div id="changes-list" class="changes-list">
+                <div class="empty-state">
+                    <div class="icon">🎨</div>
+                    <div>No CSS changes detected yet.</div>
+                    <div style="font-size: 11px; margin-top: 5px;">Start tracking and make changes in DevTools Elements panel.</div>
+                </div>
+            </div>
+            
+            <div id="bulk-actions" class="bulk-actions" style="display: none;">
+                <div class="bulk-info">
+                    <span id="selected-count">0</span> changes selected
+                </div>
+                <div class="bulk-buttons">
+                    <button id="select-all-btn" class="btn btn-mini">Select All</button>
+                    <button id="apply-selected-btn" class="btn success btn-mini">Apply Selected to Files</button>
+                    <button id="remove-selected-btn" class="btn danger btn-mini">Remove Selected</button>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px;">Activity Log</h3>
             <div id="log" class="log">
                 <div class="log-entry info">
-                    <span class="timestamp">[Ready]</span> CSS DevTools Sync is ready to track changes.
+                    <span class="timestamp">[Ready]</span> CSS DevTools Sync initialized.
                 </div>
             </div>
         </div>

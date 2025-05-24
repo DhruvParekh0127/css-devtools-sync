@@ -23,8 +23,46 @@ class CSSChangeProcessor {
             } else if (message.type === 'SET_PROJECT_CONFIGURATION') {
                 this.setProjectConfiguration(message.data).then(sendResponse);
                 return true;
+            } else if (message.type === 'APPLY_CSS_CHANGE') {
+                this.applySingleChange(message.data).then(sendResponse);
+                return true;
             }
         });
+    }
+
+    async applySingleChange(changeData) {
+        try {
+            // Add domain information if available
+            if (!changeData.domain) {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs[0]) {
+                    const url = new URL(tabs[0].url);
+                    changeData.domain = url.hostname + (url.port ? ':' + url.port : '');
+                }
+            }
+
+            // Enhance change data with intelligent selector matching and domain info
+            const enhancedData = this.enhanceChangeData(changeData);
+            
+            const response = await fetch(`${this.serverUrl}/apply-css-change`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(enhancedData)
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                console.error('Server failed to apply change:', result.error);
+            } else {
+                console.log('CSS change applied successfully to:', result.file);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('Failed to send change to server:', error);
+            return { success: false, error: error.message };
+        }
     }
 
     async checkServerStatus(currentDomain = null) {
