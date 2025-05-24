@@ -26,9 +26,5 @@
       "all_frames": false
     }
   ],
-  "action": {
-    "default_popup": "popup.html",
-    "default_title": "CSS DevTools Sync"
-  },
   "devtools_page": "devtools.html"
 }
