@@ -83,6 +83,67 @@
             box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
         }
         
+        .form-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 60px;
+            font-family: monospace;
+        }
+        
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4285f4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+        
+        .path-browse {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .path-browse input {
+            flex: 1;
+        }
+        
+        .btn-small {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .btn-small:hover {
+            background: #5a6268;
+        }
+        
+        .current-domain {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+        
+        .domain-label {
+            font-weight: 600;
+            color: #1976d2;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
         .btn {
             background: #4285f4;
             color: white;
@@ -139,12 +200,33 @@
         <span id="status-text">Connecting to server...</span>
     </div>
 
-    <div class="form-group">
-        <label for="project-path">Project CSS Folder:</label>
-        <input type="text" id="project-path" placeholder="e.g., /path/to/your/css/folder">
+    <div class="current-domain">
+        <span class="domain-label">Current Domain:</span>
+        <span id="current-domain">Loading...</span>
     </div>
 
-    <button id="set-path-btn" class="btn" disabled>Set Project Path</button>
+    <div class="form-group">
+        <label for="project-path">Local CSS Project Path:</label>
+        <div class="path-browse">
+            <input type="text" id="project-path" placeholder="e.g., /Users/username/project/css or C:\project\css">
+            <button id="browse-btn" class="btn-small">Browse</button>
+        </div>
+        <small style="color: #666; font-size: 11px; margin-top: 4px; display: block;">
+            Point to the folder containing your CSS files
+        </small>
+    </div>
+
+    <div class="form-group">
+        <label for="domain-mapping">Domain-Specific CSS Mapping (Optional):</label>
+        <textarea id="domain-mapping" placeholder="example.com -> /path/to/css
+thesleepcompany.in -> /Users/me/project/css
+localhost:3000 -> ./src/styles"></textarea>
+        <small style="color: #666; font-size: 11px; margin-top: 4px; display: block;">
+            Map specific domains to different CSS folders (one per line)
+        </small>
+    </div>
+
+    <button id="set-path-btn" class="btn" disabled>Save Configuration</button>
 
     <div class="instructions">
         <h3>How to use:</h3>

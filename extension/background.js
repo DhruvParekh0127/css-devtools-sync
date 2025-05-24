@@ -4,49 +4,88 @@ class CSSChangeProcessor {
         this.serverUrl = 'http://localhost:3001';
         this.changeQueue = [];
         this.isProcessing = false;
+        this.currentConfiguration = {
+            projectPath: null,
+            domainMappings: {},
+            activePath: null
+        };
         this.setupMessageListeners();
     }
 
     setupMessageListeners() {
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.type === 'CSS_CHANGE_DETECTED') {
-                this.processCSSChange(message.data);
+                this.processCSSChange(message.data, sender.tab);
                 sendResponse({ success: true });
             } else if (message.type === 'GET_SERVER_STATUS') {
-                this.checkServerStatus().then(sendResponse);
+                this.checkServerStatus(message.domain).then(sendResponse);
                 return true; // Keep message channel open for async response
-            } else if (message.type === 'SET_PROJECT_PATH') {
-                this.setProjectPath(message.data.path).then(sendResponse);
+            } else if (message.type === 'SET_PROJECT_CONFIGURATION') {
+                this.setProjectConfiguration(message.data).then(sendResponse);
                 return true;
             }
         });
     }
 
-    async checkServerStatus() {
+    async checkServerStatus(currentDomain = null) {
         try {
             const response = await fetch(`${this.serverUrl}/status`);
             const data = await response.json();
-            return { connected: true, ...data };
+            
+            // Determine active path for current domain
+            let activePath = this.currentConfiguration.projectPath;
+            if (currentDomain && this.currentConfiguration.domainMappings[currentDomain]) {
+                activePath = this.currentConfiguration.domainMappings[currentDomain];
+            }
+            
+            return { 
+                connected: true, 
+                ...data,
+                activePath,
+                currentDomain
+            };
         } catch (error) {
             return { connected: false, error: error.message };
         }
     }
 
-    async setProjectPath(path) {
+    async setProjectConfiguration(config) {
         try {
-            const response = await fetch(`${this.serverUrl}/set-project-path`, {
+            // Update local configuration
+            this.currentConfiguration = {
+                projectPath: config.projectPath,
+                domainMappings: config.domainMappings || {},
+                activePath: config.activePath
+            };
+
+            // Send configuration to server
+            const response = await fetch(`${this.serverUrl}/set-project-configuration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path })
+                body: JSON.stringify(config)
             });
-            return await response.json();
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('Configuration updated:', config);
+            }
+            
+            return result;
         } catch (error) {
             return { success: false, error: error.message };
         }
     }
 
-    async processCSSChange(changeData) {
-        console.log('Processing CSS change:', changeData);
+    async processCSSChange(changeData, tab) {
+        // Add domain information to change data
+        if (tab && tab.url) {
+            const url = new URL(tab.url);
+            changeData.domain = url.hostname + (url.port ? ':' + url.port : '');
+            changeData.fullUrl = tab.url;
+        }
+        
+        console.log('Processing CSS change for domain:', changeData.domain);
         
         // Add to queue
         this.changeQueue.push(changeData);
@@ -75,7 +114,7 @@ class CSSChangeProcessor {
 
     async sendChangeToServer(changeData) {
         try {
-            // Enhance change data with intelligent selector matching
+            // Enhance change data with intelligent selector matching and domain info
             const enhancedData = this.enhanceChangeData(changeData);
             
             const response = await fetch(`${this.serverUrl}/apply-css-change`, {
@@ -94,7 +133,7 @@ class CSSChangeProcessor {
                     changeData: enhancedData
                 });
             } else {
-                console.log('CSS change applied successfully:', result);
+                console.log('CSS change applied successfully to:', result.file);
                 // Notify DevTools panel of success
                 this.notifyDevToolsPanel('CSS_CHANGE_APPLIED', {
                     ...result,
@@ -133,8 +172,17 @@ class CSSChangeProcessor {
         return {
             ...changeData,
             selectorVariations,
-            matchingStrategy: 'intelligent'
+            matchingStrategy: 'intelligent',
+            // Include domain-specific information
+            targetPath: this.getTargetPathForDomain(changeData.domain)
         };
+    }
+
+    getTargetPathForDomain(domain) {
+        if (domain && this.currentConfiguration.domainMappings[domain]) {
+            return this.currentConfiguration.domainMappings[domain];
+        }
+        return this.currentConfiguration.projectPath;
     }
 
     generateSelectorVariations(changeData) {
