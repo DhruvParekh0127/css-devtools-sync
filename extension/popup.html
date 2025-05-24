@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            width: 350px;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .status.connected {
+            background: #e8f5e8;
+            color: #2d5a2d;
+            border: 1px solid #b8e6b8;
+        }
+        
+        .status.disconnected {
+            background: #ffeaea;
+            color: #a33;
+            border: 1px solid #ffb3b3;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status.connected .status-dot {
+            background: #4caf50;
+        }
+        
+        .status.disconnected .status-dot {
+            background: #f44336;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+            font-size: 13px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #4285f4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+        
+        .btn {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .btn:hover {
+            background: #3367d6;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #666;
+        }
+        
+        .instructions h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .instructions ol {
+            margin: 8px 0 0 0;
+            padding-left: 16px;
+        }
+        
+        .instructions li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>CSS DevTools Sync</h1>
+    </div>
+
+    <div id="status" class="status disconnected">
+        <div class="status-dot"></div>
+        <span id="status-text">Connecting to server...</span>
+    </div>
+
+    <div class="form-group">
+        <label for="project-path">Project CSS Folder:</label>
+        <input type="text" id="project-path" placeholder="e.g., /path/to/your/css/folder">
+    </div>
+
+    <button id="set-path-btn" class="btn" disabled>Set Project Path</button>
+
+    <div class="instructions">
+        <h3>How to use:</h3>
+        <ol>
+            <li>Start the Node.js server: <code>node server.js</code></li>
+            <li>Set your CSS project folder path above</li>
+            <li>Open DevTools and make CSS changes</li>
+            <li>Changes will automatically sync to your files</li>
+        </ol>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

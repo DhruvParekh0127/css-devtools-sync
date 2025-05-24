@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "CSS DevTools Sync",
+  "version": "1.0.0",
+  "description": "Sync CSS changes from DevTools to local files with intelligent change detection",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "debugger"
+  ],
+  "host_permissions": [
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CSS DevTools Sync"
+  },
+  "devtools_page": "devtools.html"
+}
