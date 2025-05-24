@@ -3,21 +3,25 @@
   "name": "CSS DevTools Sync",
   "version": "1.0.0",
   "description": "Sync CSS changes from DevTools to local files with intelligent change detection",
+  
   "permissions": [
     "activeTab",
     "scripting",
     "storage",
     "debugger"
   ],
+  
   "host_permissions": [
     "http://*/*",
     "https://*/*",
     "http://localhost:*/*",
     "http://127.0.0.1:*/*"
   ],
+  
   "background": {
     "service_worker": "background.js"
   },
+  
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
@@ -26,5 +30,8 @@
       "all_frames": false
     }
   ],
-  "devtools_page": "devtools.html"
+  
+  "devtools_page": "devtools.html",
+  
+  "minimum_chrome_version": "88"
 }

@@ -1,9 +1,9 @@
-// FIXED VERSION - Background script with context invalidation handling
-console.log('[BACKGROUND DEBUG] Background script starting...');
+// FIXED Background Script - Improved error handling and context management
+console.log('[BACKGROUND] Starting background script...');
 
 class CSSChangeProcessor {
     constructor() {
-        console.log('[BACKGROUND DEBUG] Constructor started');
+        console.log('[BACKGROUND] Initializing CSSChangeProcessor');
         this.serverUrl = 'http://localhost:3001';
         this.changeQueue = [];
         this.isProcessing = false;
@@ -13,229 +13,170 @@ class CSSChangeProcessor {
             activePath: null
         };
         
-        // Keep the service worker alive
-        this.keepAlive();
+        // Enhanced keep-alive mechanism
+        this.setupKeepAlive();
         this.setupMessageListeners();
-        console.log('[BACKGROUND DEBUG] Constructor completed');
+        this.loadSavedConfiguration();
+        
+        console.log('[BACKGROUND] CSSChangeProcessor initialized');
     }
 
-    // Keep service worker alive to prevent context invalidation
-    keepAlive() {
-        console.log('[BACKGROUND DEBUG] Setting up keep-alive mechanism');
+    setupKeepAlive() {
+        console.log('[BACKGROUND] Setting up enhanced keep-alive');
         
-        // Ping every 20 seconds to keep service worker active
-        setInterval(() => {
-            console.log('[BACKGROUND DEBUG] Keep-alive ping');
-        }, 20000);
-        
-        // Also respond to chrome.runtime.onStartup
+        // Multiple keep-alive strategies
+        const keepAliveInterval = setInterval(() => {
+            console.log('[BACKGROUND] Keep-alive ping');
+            // Touch chrome APIs to prevent suspension
+            chrome.storage.local.get(null).catch(() => {});
+        }, 15000);
+
+        // Listen for important events
         chrome.runtime.onStartup.addListener(() => {
-            console.log('[BACKGROUND DEBUG] Runtime startup event');
+            console.log('[BACKGROUND] Runtime startup');
+            this.loadSavedConfiguration();
         });
         
-        chrome.runtime.onInstalled.addListener(() => {
-            console.log('[BACKGROUND DEBUG] Extension installed/updated');
+        chrome.runtime.onInstalled.addListener((details) => {
+            console.log('[BACKGROUND] Extension installed/updated:', details.reason);
+            if (details.reason === 'update') {
+                this.loadSavedConfiguration();
+            }
         });
+
+        // Handle tab updates to maintain connection
+        chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+            if (changeInfo.status === 'complete' && tab.url) {
+                console.log('[BACKGROUND] Tab updated:', tabId, tab.url);
+            }
+        });
+
+        // Store interval reference for cleanup
+        this.keepAliveInterval = keepAliveInterval;
+    }
+
+    async loadSavedConfiguration() {
+        console.log('[BACKGROUND] Loading saved configuration');
+        try {
+            const result = await chrome.storage.local.get(['cssPath', 'detectionMode', 'domainMappings']);
+            if (result.cssPath) {
+                this.currentConfiguration.projectPath = result.cssPath;
+                this.currentConfiguration.domainMappings = result.domainMappings || {};
+                console.log('[BACKGROUND] Configuration loaded:', this.currentConfiguration);
+            }
+        } catch (error) {
+            console.error('[BACKGROUND] Failed to load configuration:', error);
+        }
     }
 
     setupMessageListeners() {
-        console.log('[BACKGROUND DEBUG] Setting up message listeners');
+        console.log('[BACKGROUND] Setting up message listeners');
         
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            console.log('[BACKGROUND DEBUG] Message received:', {
+            console.log('[BACKGROUND] Message received:', {
                 type: message.type,
-                sender: sender?.tab?.id || 'unknown',
-                data: message.data ? 'present' : 'missing'
+                sender: sender?.tab?.id || 'unknown'
             });
 
-            try {
-                if (message.type === 'CSS_CHANGE_DETECTED') {
-                    console.log('[BACKGROUND DEBUG] Processing CSS_CHANGE_DETECTED');
-                    this.processCSSChange(message.data, sender.tab);
-                    sendResponse({ success: true });
-                    
-                } else if (message.type === 'GET_SERVER_STATUS') {
-                    console.log('[BACKGROUND DEBUG] Processing GET_SERVER_STATUS');
-                    this.checkServerStatus(message.domain)
-                        .then(result => {
-                            console.log('[BACKGROUND DEBUG] Server status result:', result);
-                            sendResponse(result);
-                        })
-                        .catch(error => {
-                            console.error('[BACKGROUND DEBUG] Server status error:', error);
-                            sendResponse({ connected: false, error: error.message });
-                        });
-                    return true; // Keep message channel open for async response
-                    
-                } else if (message.type === 'SET_PROJECT_CONFIGURATION') {
-                    console.log('[BACKGROUND DEBUG] Processing SET_PROJECT_CONFIGURATION');
-                    this.setProjectConfiguration(message.data)
-                        .then(result => {
-                            console.log('[BACKGROUND DEBUG] Configuration result:', result);
-                            sendResponse(result);
-                        })
-                        .catch(error => {
-                            console.error('[BACKGROUND DEBUG] Configuration error:', error);
-                            sendResponse({ success: false, error: error.message });
-                        });
-                    return true;
-                    
-                } else if (message.type === 'APPLY_CSS_CHANGE') {
-                    console.log('[BACKGROUND DEBUG] Processing APPLY_CSS_CHANGE');
-                    this.applySingleChange(message.data)
-                        .then(result => {
-                            console.log('[BACKGROUND DEBUG] Apply change result:', result);
-                            sendResponse(result);
-                        })
-                        .catch(error => {
-                            console.error('[BACKGROUND DEBUG] Apply change error:', error);
-                            sendResponse({ success: false, error: error.message });
-                        });
-                    return true;
-                    
-                } else if (message.type === 'PING') {
-                    // Simple ping to check if background script is alive
-                    console.log('[BACKGROUND DEBUG] Ping received');
-                    sendResponse({ alive: true, timestamp: Date.now() });
-                    
-                } else {
-                    console.log('[BACKGROUND DEBUG] Unknown message type:', message.type);
-                    sendResponse({ error: 'Unknown message type' });
-                }
-            } catch (error) {
-                console.error('[BACKGROUND DEBUG] Error handling message:', error);
-                sendResponse({ success: false, error: error.message });
-            }
+            // Handle messages asynchronously
+            this.handleMessage(message, sender, sendResponse);
+            
+            // Return true for async response
+            return true;
         });
-        
-        console.log('[BACKGROUND DEBUG] Message listeners setup completed');
     }
 
-    async applySingleChange(changeData) {
-        console.log('[BACKGROUND DEBUG] *** APPLYING SINGLE CHANGE ***');
-        console.log('[BACKGROUND DEBUG] Change data received:', changeData);
-        
+    async handleMessage(message, sender, sendResponse) {
         try {
-            // Add domain information if available
-            if (!changeData.domain) {
-                console.log('[BACKGROUND DEBUG] No domain in change data, trying to get from active tab');
-                try {
-                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-                    if (tabs[0]) {
-                        const url = new URL(tabs[0].url);
-                        changeData.domain = url.hostname + (url.port ? ':' + url.port : '');
-                        console.log('[BACKGROUND DEBUG] Got domain from active tab:', changeData.domain);
-                    }
-                } catch (tabError) {
-                    console.log('[BACKGROUND DEBUG] Could not get active tab:', tabError.message);
-                }
-            }
+            switch (message.type) {
+                case 'CSS_CHANGE_DETECTED':
+                    await this.processCSSChange(message.data, sender.tab);
+                    sendResponse({ success: true });
+                    break;
 
-            // Enhance change data with intelligent selector matching and domain info
-            const enhancedData = this.enhanceChangeData(changeData);
-            console.log('[BACKGROUND DEBUG] Enhanced change data:', enhancedData);
-            
-            console.log('[BACKGROUND DEBUG] Sending to server:', this.serverUrl + '/apply-css-change');
-            
-            // Add timeout to fetch request
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-            
-            const response = await fetch(`${this.serverUrl}/apply-css-change`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(enhancedData),
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
+                case 'GET_SERVER_STATUS':
+                    const status = await this.checkServerStatus(message.domain);
+                    sendResponse(status);
+                    break;
 
-            console.log('[BACKGROUND DEBUG] Server response status:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                case 'SET_PROJECT_CONFIGURATION':
+                    const configResult = await this.setProjectConfiguration(message.data);
+                    sendResponse(configResult);
+                    break;
+
+                case 'APPLY_CSS_CHANGE':
+                    const applyResult = await this.applySingleChange(message.data);
+                    sendResponse(applyResult);
+                    break;
+
+                case 'PING':
+                    sendResponse({ alive: true, timestamp: Date.now() });
+                    break;
+
+                default:
+                    console.log('[BACKGROUND] Unknown message type:', message.type);
+                    sendResponse({ error: 'Unknown message type' });
             }
-            
-            const result = await response.json();
-            console.log('[BACKGROUND DEBUG] Server response data:', result);
-            
-            if (!result.success) {
-                console.error('[BACKGROUND DEBUG] Server failed to apply change:', result.error);
-            } else {
-                console.log('[BACKGROUND DEBUG] CSS change applied successfully to:', result.file);
-            }
-            
-            return result;
         } catch (error) {
-            console.error('[BACKGROUND DEBUG] Failed to send change to server:', error);
-            
-            if (error.name === 'AbortError') {
-                return { success: false, error: 'Request timeout - server not responding' };
-            } else if (error.message.includes('fetch')) {
-                return { success: false, error: 'Server connection failed - is server running?' };
-            }
-            
-            return { success: false, error: error.message };
+            console.error('[BACKGROUND] Error handling message:', error);
+            sendResponse({ 
+                success: false, 
+                error: error.message,
+                timestamp: Date.now()
+            });
         }
     }
 
     async checkServerStatus(currentDomain = null) {
-        console.log('[BACKGROUND DEBUG] *** CHECKING SERVER STATUS ***');
-        console.log('[BACKGROUND DEBUG] Current domain:', currentDomain);
-        console.log('[BACKGROUND DEBUG] Server URL:', this.serverUrl);
+        console.log('[BACKGROUND] Checking server status for domain:', currentDomain);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
         
         try {
-            // Add timeout to prevent hanging
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-            
             const response = await fetch(`${this.serverUrl}/status`, {
-                signal: controller.signal
+                signal: controller.signal,
+                headers: { 'Content-Type': 'application/json' }
             });
             
             clearTimeout(timeoutId);
-            console.log('[BACKGROUND DEBUG] Server status response:', response.status);
             
             if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                throw new Error(`Server error: ${response.status}`);
             }
             
             const data = await response.json();
-            console.log('[BACKGROUND DEBUG] Server status data:', data);
             
             // Determine active path for current domain
             let activePath = this.currentConfiguration.projectPath;
             if (currentDomain && this.currentConfiguration.domainMappings[currentDomain]) {
                 activePath = this.currentConfiguration.domainMappings[currentDomain];
-                console.log('[BACKGROUND DEBUG] Using domain-specific path:', activePath);
             }
             
-            const result = { 
+            return { 
                 connected: true, 
                 ...data,
                 activePath,
                 currentDomain
             };
             
-            console.log('[BACKGROUND DEBUG] Final server status result:', result);
-            return result;
-            
         } catch (error) {
-            console.error('[BACKGROUND DEBUG] Server status error:', error);
+            clearTimeout(timeoutId);
+            console.error('[BACKGROUND] Server status error:', error);
             
+            let errorMessage = 'Server connection failed';
             if (error.name === 'AbortError') {
-                return { connected: false, error: 'Server timeout - check if server is running' };
-            } else if (error.message.includes('fetch') || error.message.includes('NetworkError')) {
-                return { connected: false, error: 'Server not running on localhost:3001' };
+                errorMessage = 'Server timeout - check if server is running';
+            } else if (error.message.includes('fetch')) {
+                errorMessage = 'Server not running on localhost:3001';
             }
             
-            return { connected: false, error: error.message };
+            return { connected: false, error: errorMessage };
         }
     }
 
     async setProjectConfiguration(config) {
-        console.log('[BACKGROUND DEBUG] *** SETTING PROJECT CONFIGURATION ***');
-        console.log('[BACKGROUND DEBUG] Configuration:', config);
+        console.log('[BACKGROUND] Setting project configuration:', config);
         
         try {
             // Update local configuration
@@ -245,11 +186,14 @@ class CSSChangeProcessor {
                 activePath: config.activePath
             };
             
-            console.log('[BACKGROUND DEBUG] Updated local configuration:', this.currentConfiguration);
-
-            // Send configuration to server
-            console.log('[BACKGROUND DEBUG] Sending config to server...');
+            // Save to storage
+            await chrome.storage.local.set({
+                cssPath: config.projectPath,
+                detectionMode: config.detectionMode,
+                domainMappings: config.domainMappings || {}
+            });
             
+            // Send to server with timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
             
@@ -261,78 +205,113 @@ class CSSChangeProcessor {
             });
             
             clearTimeout(timeoutId);
-            console.log('[BACKGROUND DEBUG] Server config response status:', response.status);
             
             if (!response.ok) {
-                throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                throw new Error(`Server error: ${response.status}`);
             }
             
             const result = await response.json();
-            console.log('[BACKGROUND DEBUG] Server config response data:', result);
-            
-            if (result.success) {
-                console.log('[BACKGROUND DEBUG] Configuration updated successfully:', config);
-            }
+            console.log('[BACKGROUND] Configuration saved:', result);
             
             return result;
-        } catch (error) {
-            console.error('[BACKGROUND DEBUG] Configuration error:', error);
             
+        } catch (error) {
+            console.error('[BACKGROUND] Configuration error:', error);
+            
+            let errorMessage = error.message;
             if (error.name === 'AbortError') {
-                return { success: false, error: 'Configuration timeout - server not responding' };
+                errorMessage = 'Configuration timeout - server not responding';
             }
             
-            return { success: false, error: error.message };
+            return { success: false, error: errorMessage };
+        }
+    }
+
+    async applySingleChange(changeData) {
+        console.log('[BACKGROUND] Applying single change:', changeData);
+        
+        try {
+            // Ensure domain information is available
+            if (!changeData.domain) {
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs[0]) {
+                    const url = new URL(tabs[0].url);
+                    changeData.domain = url.hostname + (url.port ? ':' + url.port : '');
+                }
+            }
+
+            // Enhanced change data with better selector matching
+            const enhancedData = this.enhanceChangeData(changeData);
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // Longer timeout for file operations
+            
+            const response = await fetch(`${this.serverUrl}/apply-css-change`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(enhancedData),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error ${response.status}: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('[BACKGROUND] Apply change result:', result);
+            
+            return result;
+            
+        } catch (error) {
+            console.error('[BACKGROUND] Apply change error:', error);
+            
+            let errorMessage = error.message;
+            if (error.name === 'AbortError') {
+                errorMessage = 'Apply timeout - server not responding';
+            } else if (error.message.includes('fetch')) {
+                errorMessage = 'Server connection failed - is server running?';
+            }
+            
+            return { success: false, error: errorMessage };
         }
     }
 
     async processCSSChange(changeData, tab) {
-        console.log('[BACKGROUND DEBUG] *** PROCESSING CSS CHANGE ***');
-        console.log('[BACKGROUND DEBUG] Change data:', changeData);
-        console.log('[BACKGROUND DEBUG] Tab info:', tab);
+        console.log('[BACKGROUND] Processing CSS change:', changeData);
         
-        // Add domain information to change data
+        // Add domain information
         if (tab && tab.url) {
             try {
                 const url = new URL(tab.url);
                 changeData.domain = url.hostname + (url.port ? ':' + url.port : '');
                 changeData.fullUrl = tab.url;
-                console.log('[BACKGROUND DEBUG] Added domain info:', changeData.domain);
             } catch (urlError) {
-                console.log('[BACKGROUND DEBUG] Could not parse tab URL:', urlError.message);
+                console.log('[BACKGROUND] Could not parse tab URL:', urlError.message);
             }
         }
         
-        console.log('[BACKGROUND DEBUG] Processing CSS change for domain:', changeData.domain);
-        
-        // Add to queue
+        // Add to queue for processing
         this.changeQueue.push(changeData);
-        console.log('[BACKGROUND DEBUG] Added to queue, queue length:', this.changeQueue.length);
         
         // Process queue if not already processing
         if (!this.isProcessing) {
-            console.log('[BACKGROUND DEBUG] Starting queue processing...');
             await this.processQueue();
-        } else {
-            console.log('[BACKGROUND DEBUG] Queue already processing, change will be handled next');
         }
     }
 
     async processQueue() {
-        console.log('[BACKGROUND DEBUG] *** PROCESSING QUEUE ***');
-        console.log('[BACKGROUND DEBUG] Queue length:', this.changeQueue.length);
-        
-        if (this.changeQueue.length === 0) {
-            console.log('[BACKGROUND DEBUG] Queue is empty, nothing to process');
+        if (this.changeQueue.length === 0 || this.isProcessing) {
             return;
         }
         
         this.isProcessing = true;
-        console.log('[BACKGROUND DEBUG] Set processing flag to true');
+        console.log('[BACKGROUND] Processing queue with', this.changeQueue.length, 'changes');
         
         while (this.changeQueue.length > 0) {
             const change = this.changeQueue.shift();
-            console.log('[BACKGROUND DEBUG] Processing change from queue:', change);
             await this.sendChangeToServer(change);
             
             // Small delay to avoid overwhelming the server
@@ -340,19 +319,12 @@ class CSSChangeProcessor {
         }
         
         this.isProcessing = false;
-        console.log('[BACKGROUND DEBUG] Queue processing completed, set processing flag to false');
+        console.log('[BACKGROUND] Queue processing completed');
     }
 
     async sendChangeToServer(changeData) {
-        console.log('[BACKGROUND DEBUG] *** SENDING CHANGE TO SERVER ***');
-        console.log('[BACKGROUND DEBUG] Original change data:', changeData);
-        
         try {
-            // Enhance change data with intelligent selector matching and domain info
             const enhancedData = this.enhanceChangeData(changeData);
-            console.log('[BACKGROUND DEBUG] Enhanced change data:', enhancedData);
-            
-            console.log('[BACKGROUND DEBUG] Making fetch request to:', `${this.serverUrl}/apply-css-change`);
             
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -365,21 +337,17 @@ class CSSChangeProcessor {
             });
 
             clearTimeout(timeoutId);
-            console.log('[BACKGROUND DEBUG] Response status:', response.status);
-
+            
             const result = await response.json();
-            console.log('[BACKGROUND DEBUG] Response data:', result);
             
             if (!result.success) {
-                console.error('[BACKGROUND DEBUG] Server failed to apply change:', result.error);
-                // Notify DevTools panel of error
+                console.error('[BACKGROUND] Server failed to apply change:', result.error);
                 this.notifyDevToolsPanel('CSS_SYNC_ERROR', {
                     error: result.error,
                     changeData: enhancedData
                 });
             } else {
-                console.log('[BACKGROUND DEBUG] CSS change applied successfully to:', result.file);
-                // Notify DevTools panel of success
+                console.log('[BACKGROUND] CSS change applied successfully');
                 this.notifyDevToolsPanel('CSS_CHANGE_APPLIED', {
                     ...result,
                     changeData: enhancedData
@@ -388,7 +356,7 @@ class CSSChangeProcessor {
             
             return result;
         } catch (error) {
-            console.error('[BACKGROUND DEBUG] Failed to send change to server:', error);
+            console.error('[BACKGROUND] Failed to send change to server:', error);
             this.notifyDevToolsPanel('CSS_SYNC_ERROR', {
                 error: error.message,
                 changeData
@@ -398,130 +366,84 @@ class CSSChangeProcessor {
     }
 
     async notifyDevToolsPanel(type, data) {
-        console.log('[BACKGROUND DEBUG] *** NOTIFYING DEVTOOLS PANEL ***');
-        console.log('[BACKGROUND DEBUG] Notification type:', type);
-        console.log('[BACKGROUND DEBUG] Notification data:', data);
-        
-        // Try to send message to DevTools panel
         try {
             const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            console.log('[BACKGROUND DEBUG] Active tabs found:', tabs.length);
-            
             if (tabs[0]) {
-                console.log('[BACKGROUND DEBUG] Sending message to tab:', tabs[0].id);
                 await chrome.tabs.sendMessage(tabs[0].id, { type, data });
-                console.log('[BACKGROUND DEBUG] Message sent to tab successfully');
-            } else {
-                console.log('[BACKGROUND DEBUG] No active tab found');
             }
         } catch (error) {
             // DevTools panel might not be open, that's okay
-            console.log('[BACKGROUND DEBUG] Could not notify DevTools panel (this is normal):', error.message);
+            console.log('[BACKGROUND] Could not notify DevTools panel:', error.message);
         }
     }
 
     enhanceChangeData(changeData) {
-        console.log('[BACKGROUND DEBUG] *** ENHANCING CHANGE DATA ***');
-        console.log('[BACKGROUND DEBUG] Original change data:', changeData);
-        
-        // Create multiple selector variations for smart matching
         const selectorVariations = this.generateSelectorVariations(changeData);
-        console.log('[BACKGROUND DEBUG] Generated selector variations:', selectorVariations);
         
-        const enhanced = {
+        return {
             ...changeData,
             selectorVariations,
             matchingStrategy: 'intelligent',
-            // Include domain-specific information
-            targetPath: this.getTargetPathForDomain(changeData.domain)
+            targetPath: this.getTargetPathForDomain(changeData.domain),
+            timestamp: Date.now()
         };
-        
-        console.log('[BACKGROUND DEBUG] Enhanced change data:', enhanced);
-        return enhanced;
     }
 
     getTargetPathForDomain(domain) {
-        console.log('[BACKGROUND DEBUG] Getting target path for domain:', domain);
-        console.log('[BACKGROUND DEBUG] Current configuration:', this.currentConfiguration);
-        
         if (domain && this.currentConfiguration.domainMappings[domain]) {
-            const path = this.currentConfiguration.domainMappings[domain];
-            console.log('[BACKGROUND DEBUG] Found domain-specific path:', path);
-            return path;
+            return this.currentConfiguration.domainMappings[domain];
         }
-        
-        const defaultPath = this.currentConfiguration.projectPath;
-        console.log('[BACKGROUND DEBUG] Using default project path:', defaultPath);
-        return defaultPath;
+        return this.currentConfiguration.projectPath;
     }
 
     generateSelectorVariations(changeData) {
-        console.log('[BACKGROUND DEBUG] *** GENERATING SELECTOR VARIATIONS ***');
-        console.log('[BACKGROUND DEBUG] Change data for variations:', changeData);
-        
         const variations = [];
         const { selector, classList } = changeData;
         
-        console.log('[BACKGROUND DEBUG] Base selector:', selector);
-        console.log('[BACKGROUND DEBUG] Class list:', classList);
-        
         // Original selector
         variations.push({ selector, priority: 1, type: 'original' });
-        console.log('[BACKGROUND DEBUG] Added original selector variation');
         
-        // Individual class selectors from classList
-        if (classList && classList.length > 0) {
-            console.log('[BACKGROUND DEBUG] Processing individual classes...');
+        // Individual class selectors
+        if (classList && Array.isArray(classList)) {
             classList.forEach((className, index) => {
-                const variation = {
+                variations.push({
                     selector: `.${className}`,
-                    priority: 10 - index, // First class gets higher priority
+                    priority: 10 - index,
                     type: 'individual_class'
-                };
-                variations.push(variation);
-                console.log(`[BACKGROUND DEBUG] Added individual class variation ${index}:`, variation);
+                });
             });
             
             // Combined class selector
-            const combinedSelector = '.' + classList.join('.');
-            const combinedVariation = {
-                selector: combinedSelector,
-                priority: 5,
-                type: 'combined_classes'
-            };
-            variations.push(combinedVariation);
-            console.log('[BACKGROUND DEBUG] Added combined classes variation:', combinedVariation);
+            if (classList.length > 1) {
+                variations.push({
+                    selector: '.' + classList.join('.'),
+                    priority: 5,
+                    type: 'combined_classes'
+                });
+            }
         }
         
         // Element + class combinations
         const elementMatch = selector.match(/^(\w+)/);
         if (elementMatch && classList && classList.length > 0) {
             const element = elementMatch[1];
-            console.log('[BACKGROUND DEBUG] Found element:', element);
-            
             classList.forEach((className, index) => {
-                const variation = {
+                variations.push({
                     selector: `${element}.${className}`,
                     priority: 8 - index,
                     type: 'element_class'
-                };
-                variations.push(variation);
-                console.log(`[BACKGROUND DEBUG] Added element+class variation ${index}:`, variation);
+                });
             });
         }
         
         // Sort by priority (higher first)
-        variations.sort((a, b) => b.priority - a.priority);
-        console.log('[BACKGROUND DEBUG] Final sorted variations:', variations);
-        
-        return variations;
+        return variations.sort((a, b) => b.priority - a.priority);
     }
 }
 
 // Initialize the background processor
-console.log('[BACKGROUND DEBUG] Initializing CSSChangeProcessor...');
+console.log('[BACKGROUND] Initializing CSSChangeProcessor...');
 const processor = new CSSChangeProcessor();
-console.log('[BACKGROUND DEBUG] Background script initialization completed');
 
 // Export for debugging
 self.cssProcessor = processor;
